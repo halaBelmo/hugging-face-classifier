@@ -1,0 +1,112 @@
+INFO 2026-05-15 16:04:23,030 [root:accelerator.py:_autodetect_tpu_version:216]
+Unable to poll TPU GCE metadata: HTTPConnectionPool(host='metadata.google.internal', port=80): Max retries exceeded with url: /computeMetadata/v1/instance/attributes/accelerator-type (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7a2b3af327a0>: Failed to establish a new connection: [Errno -2] Name or service not known'))
+
+INFO 2026-05-15 16:22:41,983 [root:accelerator.py:_autodetect_tpu_version:216]
+Unable to poll TPU GCE metadata: HTTPConnectionPool(host='metadata.google.internal', port=80): Max retries exceeded with url: /computeMetadata/v1/instance/attributes/accelerator-type (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x78e6c8498d30>: Failed to establish a new connection: [Errno -2] Name or service not known'))
+
+INFO 2026-05-15 16:24:22,740 [root:accelerator.py:_autodetect_tpu_version:216]
+Unable to poll TPU GCE metadata: HTTPConnectionPool(host='metadata.google.internal', port=80): Max retries exceeded with url: /computeMetadata/v1/instance/attributes/accelerator-type (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x78944bc8dcf0>: Failed to establish a new connection: [Errno -2] Name or service not known'))
+
+INFO 2026-05-15 16:26:53,268 [root:accelerator.py:_autodetect_tpu_version:216]
+Unable to poll TPU GCE metadata: HTTPConnectionPool(host='metadata.google.internal', port=80): Max retries exceeded with url: /computeMetadata/v1/instance/attributes/accelerator-type (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7b34d28b54b0>: Failed to establish a new connection: [Errno -2] Name or service not known'))
+
+INFO 2026-05-15 16:27:23,003 [root:accelerator.py:_autodetect_tpu_version:216]
+Unable to poll TPU GCE metadata: HTTPConnectionPool(host='metadata.google.internal', port=80): Max retries exceeded with url: /computeMetadata/v1/instance/attributes/accelerator-type (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x77f4a5c9e8c0>: Failed to establish a new connection: [Errno -2] Name or service not known'))
+
+INFO 2026-05-15 16:29:01,115 [root:accelerator.py:_autodetect_tpu_version:216]
+Unable to poll TPU GCE metadata: HTTPConnectionPool(host='metadata.google.internal', port=80): Max retries exceeded with url: /computeMetadata/v1/instance/attributes/accelerator-type (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7cacd6ad4c10>: Failed to establish a new connection: [Errno -2] Name or service not known'))
+
+INFO 2026-05-15 16:30:52,559 [root:accelerator.py:_autodetect_tpu_version:216]
+Unable to poll TPU GCE metadata: HTTPConnectionPool(host='metadata.google.internal', port=80): Max retries exceeded with url: /computeMetadata/v1/instance/attributes/accelerator-type (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x728a07c911e0>: Failed to establish a new connection: [Errno -2] Name or service not known'))
+
+INFO 2026-05-15 16:44:47,945 [root:accelerator.py:_autodetect_tpu_version:216]
+Unable to poll TPU GCE metadata: HTTPConnectionPool(host='metadata.google.internal', port=80): Max retries exceeded with url: /computeMetadata/v1/instance/attributes/accelerator-type (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7e78182c0490>: Failed to establish a new connection: [Errno -2] Name or service not known'))
+
+INFO 2026-05-15 17:11:47,268 [root:accelerator.py:_autodetect_tpu_version:216]
+Unable to poll TPU GCE metadata: HTTPConnectionPool(host='metadata.google.internal', port=80): Max retries exceeded with url: /computeMetadata/v1/instance/attributes/accelerator-type (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x70cd678d0850>: Failed to establish a new connection: [Errno -2] Name or service not known'))
+
+INFO 2026-05-15 17:17:26,157 [root:accelerator.py:_autodetect_tpu_version:216]
+Unable to poll TPU GCE metadata: HTTPConnectionPool(host='metadata.google.internal', port=80): Max retries exceeded with url: /computeMetadata/v1/instance/attributes/accelerator-type (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x78b83f8a0e50>: Failed to establish a new connection: [Errno -2] Name or service not known'))
+
+INFO 2026-05-15 17:26:53,561 [root:accelerator.py:_autodetect_tpu_version:216]
+Unable to poll TPU GCE metadata: HTTPConnectionPool(host='metadata.google.internal', port=80): Max retries exceeded with url: /computeMetadata/v1/instance/attributes/accelerator-type (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x70147a8b1690>: Failed to establish a new connection: [Errno -2] Name or service not known'))
+
+INFO 2026-05-15 17:31:51,098 [root:accelerator.py:_autodetect_tpu_version:216]
+Unable to poll TPU GCE metadata: HTTPConnectionPool(host='metadata.google.internal', port=80): Max retries exceeded with url: /computeMetadata/v1/instance/attributes/accelerator-type (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7850cb29b280>: Failed to establish a new connection: [Errno -2] Name or service not known'))
+
+INFO 2026-05-15 17:36:14,265 [root:accelerator.py:_autodetect_tpu_version:216]
+Unable to poll TPU GCE metadata: HTTPConnectionPool(host='metadata.google.internal', port=80): Max retries exceeded with url: /computeMetadata/v1/instance/attributes/accelerator-type (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7e71c028b550>: Failed to establish a new connection: [Errno -2] Name or service not known'))
+
+INFO 2026-05-15 17:37:39,255 [root:accelerator.py:_autodetect_tpu_version:216]
+Unable to poll TPU GCE metadata: HTTPConnectionPool(host='metadata.google.internal', port=80): Max retries exceeded with url: /computeMetadata/v1/instance/attributes/accelerator-type (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x790eda48ec80>: Failed to establish a new connection: [Errno -2] Name or service not known'))
+
+INFO 2026-05-15 17:45:06,117 [root:accelerator.py:_autodetect_tpu_version:216]
+Unable to poll TPU GCE metadata: HTTPConnectionPool(host='metadata.google.internal', port=80): Max retries exceeded with url: /computeMetadata/v1/instance/attributes/accelerator-type (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7eca430aa6b0>: Failed to establish a new connection: [Errno -2] Name or service not known'))
+
+INFO 2026-05-15 17:46:47,728 [root:train.py:train_model:251]
+{
+  "timestamp": "May 15, 2026 05:46:47 PM",
+  "run_id": "601e855225e7407abb7c43028650e200",
+  "params": {
+    "dropout_p": 0.3,
+    "lr": 1e-05,
+    "lr_factor": 0.8,
+    "lr_patience": 3,
+    "num_samples": 100,
+    "num_epochs": 1,
+    "batch_size": 8,
+    "num_classes": 4
+  },
+  "metrics": [
+    {
+      "epoch": 0,
+      "train_loss": 0.601066505908966,
+      "val_loss": 0.5486822227636973
+    }
+  ]
+}
+
+INFO 2026-05-15 17:52:38,103 [root:accelerator.py:_autodetect_tpu_version:216]
+Unable to poll TPU GCE metadata: HTTPConnectionPool(host='metadata.google.internal', port=80): Max retries exceeded with url: /computeMetadata/v1/instance/attributes/accelerator-type (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7cee9356c340>: Failed to establish a new connection: [Errno -2] Name or service not known'))
+
+INFO 2026-05-15 17:52:53,552 [/home/reda/Projects/MLOpsFull/venv/lib/python3.10/site-packages/ray/serve/_private/api.py:api.py:serve_start:328]
+Started detached Serve instance in namespace "serve".
+
+INFO 2026-05-15 17:53:04,651 [/home/reda/Projects/MLOpsFull/venv/lib/python3.10/site-packages/ray/serve/_private/client.py:client.py:log_deployment_ready:581]
+Deployment 'ModelDeployment:RjSKsS' is ready at `http://127.0.0.1:8000/`. component=serve deployment=ModelDeployment
+
+INFO 2026-05-15 17:56:44,596 [root:accelerator.py:_autodetect_tpu_version:216]
+Unable to poll TPU GCE metadata: HTTPConnectionPool(host='metadata.google.internal', port=80): Max retries exceeded with url: /computeMetadata/v1/instance/attributes/accelerator-type (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x75687be7b910>: Failed to establish a new connection: [Errno -2] Name or service not known'))
+
+INFO 2026-05-15 17:57:01,154 [/home/reda/Projects/MLOpsFull/venv/lib/python3.10/site-packages/ray/serve/_private/api.py:api.py:serve_start:328]
+Started detached Serve instance in namespace "serve".
+
+INFO 2026-05-15 17:57:14,427 [/home/reda/Projects/MLOpsFull/venv/lib/python3.10/site-packages/ray/serve/_private/client.py:client.py:log_deployment_ready:581]
+Deployment 'ModelDeployment:MgsCMZ' is ready at `http://127.0.0.1:8000/`. component=serve deployment=ModelDeployment
+
+INFO 2026-05-15 22:26:31,813 [root:accelerator.py:_autodetect_tpu_version:216]
+Unable to poll TPU GCE metadata: HTTPConnectionPool(host='metadata.google.internal', port=80): Max retries exceeded with url: /computeMetadata/v1/instance/attributes/accelerator-type (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x75cc158be920>: Failed to establish a new connection: [Errno -2] Name or service not known'))
+
+INFO 2026-05-15 22:28:31,318 [root:train.py:train_model:251]
+{
+  "timestamp": "May 15, 2026 10:28:31 PM",
+  "run_id": "89b7780a79c54ce29d77ffcde8b9216d",
+  "params": {
+    "dropout_p": 0.3,
+    "lr": 1e-05,
+    "lr_factor": 0.8,
+    "lr_patience": 3,
+    "num_samples": 100,
+    "num_epochs": 1,
+    "batch_size": 8,
+    "num_classes": 4
+  },
+  "metrics": [
+    {
+      "epoch": 0,
+      "train_loss": 0.601066505908966,
+      "val_loss": 0.5486822227636973
+    }
+  ]
+}
+
