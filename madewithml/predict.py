@@ -2,6 +2,7 @@ import json
 from pathlib import Path
 from typing import Any, Dict, Iterable, List
 from urllib.parse import urlparse
+from urllib.request import url2pathname
 
 import numpy as np
 import ray
@@ -128,7 +129,12 @@ def get_best_checkpoint(run_id: str) -> TorchCheckpoint:  # pragma: no cover, ml
     Returns:
         TorchCheckpoint: Best checkpoint from the run.
     """
-    artifact_dir = urlparse(mlflow.get_run(run_id).info.artifact_uri).path  # get path from mlflow
+    artifact_uri = mlflow.get_run(run_id).info.artifact_uri
+    parsed_uri = urlparse(artifact_uri)
+    if parsed_uri.scheme == "file":
+        artifact_dir = Path(url2pathname(parsed_uri.netloc + parsed_uri.path))
+    else:
+        artifact_dir = Path(artifact_uri)
     results = Result.from_path(artifact_dir)
     return results.best_checkpoints[0][0]
 

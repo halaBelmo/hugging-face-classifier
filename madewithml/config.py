@@ -10,13 +10,8 @@ import mlflow
 ROOT_DIR = Path(__file__).parent.parent.absolute()
 LOGS_DIR = Path(ROOT_DIR, "logs")
 LOGS_DIR.mkdir(parents=True, exist_ok=True)
-# EFS_DIR = Path(f"/efs/shared_storage/madewithml/{os.environ.get('GITHUB_USERNAME', '')}")
-EFS_DIR = EFS_DIR = Path(ROOT_DIR, "efs")
-try:
-    Path(EFS_DIR).mkdir(parents=True, exist_ok=True)
-except OSError:
-    EFS_DIR = Path(ROOT_DIR, "efs")
-    Path(EFS_DIR).mkdir(parents=True, exist_ok=True)
+EFS_DIR = Path(os.environ.get("MADEWITHML_EFS_DIR", Path(ROOT_DIR, "efs"))).resolve()
+EFS_DIR.mkdir(parents=True, exist_ok=True)
 
 # Config MLflow
 MODEL_REGISTRY = Path(f"{EFS_DIR}/mlflow")

@@ -19,6 +19,7 @@ from ray.train import (
     DataConfig,
     RunConfig,
     ScalingConfig,
+    SyncConfig,
 )
 from ray.train.torch import TorchTrainer
 from torch.nn.parallel.distributed import DistributedDataParallel
@@ -157,7 +158,7 @@ def train_model(
     cpu_per_worker: int = 1,
     gpu_per_worker: int = 0,
     num_samples: int = 100,
-    num_epochs: int = 1,
+    num_epochs: int = 10,
     batch_size: int = 8,
     results_fp: str = "results.json",
 ) -> ray.air.result.Result:
@@ -209,7 +210,12 @@ def train_model(
     )
 
     # Run config
-    run_config = RunConfig(callbacks=[mlflow_callback], checkpoint_config=checkpoint_config, storage_path=EFS_DIR, local_dir=EFS_DIR)
+    run_config = RunConfig(
+        callbacks=[mlflow_callback],
+        checkpoint_config=checkpoint_config,
+        local_dir=str(EFS_DIR),
+        sync_config=SyncConfig(syncer=None),
+    )
 
     # Dataset
     ds = data.load_data(dataset_loc=dataset_loc, num_samples=train_loop_config["num_samples"])
@@ -257,5 +263,5 @@ def train_model(
 if __name__ == "__main__":  # pragma: no cover, application
     if ray.is_initialized():
         ray.shutdown()
-    ray.init(runtime_env={"env_vars": {"GITHUB_USERNAME": os.environ["GITHUB_USERNAME"]}})
+    ray.init(num_gpus=0, runtime_env={"env_vars": {"GITHUB_USERNAME": os.environ["GITHUB_USERNAME"]}})
     app()
