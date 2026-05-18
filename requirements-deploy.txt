@@ -1,0 +1,5 @@
+# Optional cloud deployment dependencies.
+#
+# Install this file only when you need Anyscale/Ray cloud deployment:
+# python -m pip install -r requirements-deploy.txt
+anyscale==0.5.131
