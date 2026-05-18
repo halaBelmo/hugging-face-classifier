@@ -20,6 +20,7 @@ logs/*.log
 *.log
 
 # Local ML/Ray/MLflow artifacts
+.hf_cache/
 efs/
 mlruns/
 ray_results/

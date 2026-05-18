@@ -5,7 +5,10 @@ __pycache__
 *.pyc
 .git
 .gitignore
+.hf_cache
+logs
 mlruns
 efs
 data
 notebooks
+results-ci.json
