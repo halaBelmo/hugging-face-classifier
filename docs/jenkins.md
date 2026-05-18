@@ -4,7 +4,8 @@ This project includes a declarative Jenkins pipeline in `Jenkinsfile`.
 
 ## Jenkins agent prerequisites
 
-- Python 3.10 available as `python3.10`, `python3`, `py -3.10`, or `python`
+- Python 3.10 available as `python3.10`, `py -3.10`, or `python`. On Linux agents without Python 3.10, the pipeline installs `uv` with `curl` and creates a Python 3.10 virtual environment.
+- `curl` installed on Linux agents when Python 3.10 is not already available
 - Docker installed if `BUILD_DOCKER` or `DEPLOY_LOCAL` is enabled
 - Network access to PyPI and Hugging Face for dependency and model downloads
 

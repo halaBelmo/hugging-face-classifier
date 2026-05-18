@@ -36,10 +36,17 @@ pipeline {
                     if (isUnix()) {
                         sh '''
                             set -eux
+                            rm -rf .venv
                             if command -v python3.10 >/dev/null 2>&1; then
                                 python3.10 -m venv .venv
                             else
-                                python3 -m venv .venv
+                                if ! command -v curl >/dev/null 2>&1; then
+                                    echo "curl is required to install uv when python3.10 is missing."
+                                    exit 1
+                                fi
+                                curl -LsSf https://astral.sh/uv/install.sh | sh
+                                export PATH="$HOME/.local/bin:$PATH"
+                                uv venv --python 3.10 .venv
                             fi
                             . .venv/bin/activate
                             python --version
