@@ -9,7 +9,7 @@ pipeline {
 
     parameters {
         booleanParam(name: 'RUN_TRAIN', defaultValue: false, description: 'Run a short training job during CI.')
-        booleanParam(name: 'BUILD_DOCKER', defaultValue: true, description: 'Build the Docker image.')
+        booleanParam(name: 'BUILD_DOCKER', defaultValue: false, description: 'Build the Docker image when Docker is available.')
         booleanParam(name: 'DEPLOY_LOCAL', defaultValue: false, description: 'Run the API container on this Jenkins agent.')
         string(name: 'RUN_ID', defaultValue: '', description: 'MLflow run_id to serve when DEPLOY_LOCAL is enabled.')
         string(name: 'DOCKER_IMAGE', defaultValue: 'hugging-face-classifier', description: 'Docker image name.')
@@ -85,13 +85,13 @@ PY
                         sh '''
                             set -eux
                             . .venv/bin/activate
-                            python -m pip install -r requirements.txt
+                            python -m pip install -r requirements-ci.txt
                             python -m pip install --force-reinstall "setuptools==68.2.2" "click==8.1.7"
                         '''
                     } else {
                         bat '''
                             call .venv\\Scripts\\activate.bat
-                            python -m pip install -r requirements.txt
+                            python -m pip install -r requirements-ci.txt
                             python -m pip install --force-reinstall "setuptools==68.2.2" "click==8.1.7"
                         '''
                     }
