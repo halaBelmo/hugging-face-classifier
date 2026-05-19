@@ -12,8 +12,11 @@ This project includes a declarative Jenkins pipeline in `Jenkinsfile`.
 ## Pipeline parameters
 
 - `RUN_TRAIN`: runs a short 1 epoch training smoke test. Disabled by default because model downloads and CPU training are slow.
-- `BUILD_DOCKER`: builds the Docker image when Docker is available. Disabled by default to keep the first Jenkins build fast.
-- `DEPLOY_LOCAL`: runs the API container on the Jenkins agent when Docker is available.
+- `BUILD_DOCKER`: builds the Docker image. Disabled by default to keep the first Jenkins build fast.
+- `DEPLOY_LOCAL`: runs the API container on the Jenkins agent.
+- `TRAIN_EPOCHS`: number of epochs to run when `RUN_TRAIN` is enabled. Default: `10`.
+- `TRAIN_SAMPLES`: number of samples to use when `RUN_TRAIN` is enabled. Default: `100`.
+- `TRAIN_BATCH_SIZE`: batch size to use when `RUN_TRAIN` is enabled. Default: `8`.
 - `RUN_ID`: MLflow run ID to serve when `DEPLOY_LOCAL` is enabled.
 - `DOCKER_IMAGE`: Docker image name. Default: `hugging-face-classifier`.
 - `GITHUB_USERNAME`: username propagated to Ray runtime environment. Default: `jenkins`.
@@ -22,7 +25,16 @@ This project includes a declarative Jenkins pipeline in `Jenkinsfile`.
 
 Use the defaults first. This installs the smaller CI dependency set from `requirements-ci.txt`, runs import/compile checks, and runs smoke tests.
 
-Enable `BUILD_DOCKER` only after the Python checks pass and Docker is available on the Jenkins agent.
+Enable `RUN_TRAIN` with the default training parameters to run the same 10 epoch training smoke used locally:
+
+```text
+RUN_TRAIN=true
+TRAIN_EPOCHS=10
+TRAIN_SAMPLES=100
+TRAIN_BATCH_SIZE=8
+```
+
+Enable `BUILD_DOCKER` only after Docker is available on the Jenkins agent. If `BUILD_DOCKER=true` or `DEPLOY_LOCAL=true` and Docker is missing, the pipeline fails with a clear setup message instead of skipping the application build.
 
 To deploy the model trained locally, enable `DEPLOY_LOCAL` and set:
 

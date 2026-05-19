@@ -11,6 +11,9 @@ pipeline {
         booleanParam(name: 'RUN_TRAIN', defaultValue: false, description: 'Run a short training job during CI.')
         booleanParam(name: 'BUILD_DOCKER', defaultValue: false, description: 'Build the Docker image when Docker is available.')
         booleanParam(name: 'DEPLOY_LOCAL', defaultValue: false, description: 'Run the API container on this Jenkins agent.')
+        string(name: 'TRAIN_EPOCHS', defaultValue: '10', description: 'Number of epochs to run when RUN_TRAIN is enabled.')
+        string(name: 'TRAIN_SAMPLES', defaultValue: '100', description: 'Number of samples to train on when RUN_TRAIN is enabled.')
+        string(name: 'TRAIN_BATCH_SIZE', defaultValue: '8', description: 'Batch size to use when RUN_TRAIN is enabled.')
         string(name: 'RUN_ID', defaultValue: '', description: 'MLflow run_id to serve when DEPLOY_LOCAL is enabled.')
         string(name: 'DOCKER_IMAGE', defaultValue: 'hugging-face-classifier', description: 'Docker image name.')
         string(name: 'GITHUB_USERNAME', defaultValue: 'jenkins', description: 'Username propagated to Ray runtime_env.')
@@ -159,13 +162,26 @@ PY
             }
         }
 
+        stage('Validate Docker Requirement') {
+            when {
+                expression { return params.BUILD_DOCKER || params.DEPLOY_LOCAL }
+            }
+            steps {
+                script {
+                    if (env.HAS_DOCKER != 'true') {
+                        error('Docker is required because BUILD_DOCKER or DEPLOY_LOCAL is enabled, but Docker is not available on this Jenkins agent.')
+                    }
+                }
+            }
+        }
+
         stage('Short Train Smoke') {
             when {
                 expression { return params.RUN_TRAIN }
             }
             steps {
                 script {
-                    def trainCommand = 'python -m madewithml.train --num-epochs=1 --num-samples=20 --batch-size=4 --results-fp=results-ci.json'
+                    def trainCommand = "python -m madewithml.train --num-epochs=${params.TRAIN_EPOCHS} --num-samples=${params.TRAIN_SAMPLES} --batch-size=${params.TRAIN_BATCH_SIZE} --results-fp=results-ci.json"
                     if (isUnix()) {
                         sh """
                             set -eux
@@ -193,7 +209,7 @@ PY
 
         stage('Docker Build') {
             when {
-                expression { return params.BUILD_DOCKER && env.HAS_DOCKER == 'true' }
+                expression { return params.BUILD_DOCKER }
             }
             steps {
                 script {
@@ -211,7 +227,7 @@ PY
 
         stage('Docker Smoke') {
             when {
-                expression { return params.BUILD_DOCKER && env.HAS_DOCKER == 'true' }
+                expression { return params.BUILD_DOCKER }
             }
             steps {
                 script {
@@ -231,7 +247,6 @@ PY
                 allOf {
                     expression { return params.DEPLOY_LOCAL }
                     expression { return params.RUN_ID?.trim() }
-                    expression { return env.HAS_DOCKER == 'true' }
                 }
             }
             steps {
