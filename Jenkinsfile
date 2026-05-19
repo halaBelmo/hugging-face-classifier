@@ -9,11 +9,15 @@ pipeline {
 
     parameters {
         booleanParam(name: 'RUN_TRAIN', defaultValue: false, description: 'Run a short training job during CI.')
+        booleanParam(name: 'RUN_EVALUATE', defaultValue: false, description: 'Evaluate a trained model during CI.')
         booleanParam(name: 'BUILD_DOCKER', defaultValue: false, description: 'Build the Docker image when Docker is available.')
         booleanParam(name: 'DEPLOY_LOCAL', defaultValue: false, description: 'Run the API container on this Jenkins agent.')
         string(name: 'TRAIN_EPOCHS', defaultValue: '10', description: 'Number of epochs to run when RUN_TRAIN is enabled.')
         string(name: 'TRAIN_SAMPLES', defaultValue: '100', description: 'Number of samples to train on when RUN_TRAIN is enabled.')
         string(name: 'TRAIN_BATCH_SIZE', defaultValue: '8', description: 'Batch size to use when RUN_TRAIN is enabled.')
+        string(name: 'EVALUATE_RUN_ID', defaultValue: '', description: 'MLflow run_id to evaluate. When empty, uses results-ci.json from RUN_TRAIN.')
+        string(name: 'EVALUATE_DATASET', defaultValue: 'datasets/holdout.csv', description: 'Dataset with labels to evaluate on.')
+        string(name: 'EVALUATE_RESULTS_FP', defaultValue: 'evaluation-ci.json', description: 'Evaluation results JSON output path.')
         string(name: 'RUN_ID', defaultValue: '', description: 'MLflow run_id to serve when DEPLOY_LOCAL is enabled.')
         string(name: 'DOCKER_IMAGE', defaultValue: 'hugging-face-classifier', description: 'Docker image name.')
         string(name: 'GITHUB_USERNAME', defaultValue: 'jenkins', description: 'Username propagated to Ray runtime_env.')
@@ -203,6 +207,47 @@ PY
             post {
                 always {
                     archiveArtifacts artifacts: 'results-ci.json,efs/**/result.json', allowEmptyArchive: true
+                }
+            }
+        }
+
+        stage('Evaluate') {
+            when {
+                expression { return params.RUN_EVALUATE }
+            }
+            steps {
+                script {
+                    def evaluateRunId = params.EVALUATE_RUN_ID?.trim()
+                    if (!evaluateRunId && params.RUN_TRAIN && fileExists('results-ci.json')) {
+                        def trainResults = new groovy.json.JsonSlurperClassic().parseText(readFile('results-ci.json'))
+                        evaluateRunId = trainResults.run_id
+                    }
+                    if (!evaluateRunId) {
+                        error('RUN_EVALUATE requires EVALUATE_RUN_ID, or RUN_TRAIN must produce results-ci.json in the same build.')
+                    }
+
+                    def evaluateCommand = "python -m madewithml.evaluate --run-id=${evaluateRunId} --dataset-loc=${params.EVALUATE_DATASET} --results-fp=${params.EVALUATE_RESULTS_FP}"
+                    if (isUnix()) {
+                        sh """
+                            set -eux
+                            . .venv/bin/activate
+                            export HF_HOME="\$WORKSPACE/.hf_cache"
+                            export TRANSFORMERS_CACHE="\$WORKSPACE/.hf_cache/transformers"
+                            ${evaluateCommand}
+                        """
+                    } else {
+                        bat """
+                            call .venv\\Scripts\\activate.bat
+                            set HF_HOME=%WORKSPACE%\\.hf_cache
+                            set TRANSFORMERS_CACHE=%WORKSPACE%\\.hf_cache\\transformers
+                            ${evaluateCommand}
+                        """
+                    }
+                }
+            }
+            post {
+                always {
+                    archiveArtifacts artifacts: "${params.EVALUATE_RESULTS_FP}", allowEmptyArchive: true
                 }
             }
         }

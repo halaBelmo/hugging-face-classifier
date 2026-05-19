@@ -11,12 +11,16 @@ This project includes a declarative Jenkins pipeline in `Jenkinsfile`.
 
 ## Pipeline parameters
 
-- `RUN_TRAIN`: runs a short 1 epoch training smoke test. Disabled by default because model downloads and CPU training are slow.
+- `RUN_TRAIN`: runs a short training smoke test. Disabled by default because model downloads and CPU training are slow.
+- `RUN_EVALUATE`: evaluates a trained model. Disabled by default because it needs an MLflow run ID and model checkpoint.
 - `BUILD_DOCKER`: builds the Docker image. Disabled by default to keep the first Jenkins build fast.
 - `DEPLOY_LOCAL`: runs the API container on the Jenkins agent.
 - `TRAIN_EPOCHS`: number of epochs to run when `RUN_TRAIN` is enabled. Default: `10`.
 - `TRAIN_SAMPLES`: number of samples to use when `RUN_TRAIN` is enabled. Default: `100`.
 - `TRAIN_BATCH_SIZE`: batch size to use when `RUN_TRAIN` is enabled. Default: `8`.
+- `EVALUATE_RUN_ID`: MLflow run ID to evaluate. If empty and `RUN_TRAIN=true`, Jenkins uses the `run_id` saved in `results-ci.json`.
+- `EVALUATE_DATASET`: labeled dataset used for evaluation. Default: `datasets/holdout.csv`.
+- `EVALUATE_RESULTS_FP`: path for the evaluation results JSON artifact. Default: `evaluation-ci.json`.
 - `RUN_ID`: MLflow run ID to serve when `DEPLOY_LOCAL` is enabled.
 - `DOCKER_IMAGE`: Docker image name. Default: `hugging-face-classifier`.
 - `GITHUB_USERNAME`: username propagated to Ray runtime environment. Default: `jenkins`.
@@ -32,6 +36,20 @@ RUN_TRAIN=true
 TRAIN_EPOCHS=10
 TRAIN_SAMPLES=100
 TRAIN_BATCH_SIZE=8
+```
+
+To train and evaluate in the same Jenkins build, enable both:
+
+```text
+RUN_TRAIN=true
+RUN_EVALUATE=true
+```
+
+To evaluate an existing MLflow run without training first, enable `RUN_EVALUATE` and set:
+
+```text
+EVALUATE_RUN_ID=06cb00ce853f41b1af18c78646056727
+EVALUATE_DATASET=datasets/holdout.csv
 ```
 
 Enable `BUILD_DOCKER` only after Docker is available on the Jenkins agent. If `BUILD_DOCKER=true` or `DEPLOY_LOCAL=true` and Docker is missing, the pipeline fails with a clear setup message instead of skipping the application build.
