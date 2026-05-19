@@ -219,8 +219,23 @@ PY
                 script {
                     def evaluateRunId = params.EVALUATE_RUN_ID?.trim()
                     if (!evaluateRunId && params.RUN_TRAIN && fileExists('results-ci.json')) {
-                        def trainResults = new groovy.json.JsonSlurperClassic().parseText(readFile('results-ci.json'))
-                        evaluateRunId = trainResults.run_id
+                        if (isUnix()) {
+                            evaluateRunId = sh(
+                                returnStdout: true,
+                                script: '''
+                                    . .venv/bin/activate
+                                    python -c "import json; print(json.load(open('results-ci.json'))['run_id'])"
+                                '''
+                            ).trim()
+                        } else {
+                            evaluateRunId = bat(
+                                returnStdout: true,
+                                script: '''
+                                    @call .venv\\Scripts\\activate.bat
+                                    @python -c "import json; print(json.load(open('results-ci.json'))['run_id'])"
+                                '''
+                            ).trim()
+                        }
                     }
                     if (!evaluateRunId) {
                         error('RUN_EVALUATE requires EVALUATE_RUN_ID, or RUN_TRAIN must produce results-ci.json in the same build.')
