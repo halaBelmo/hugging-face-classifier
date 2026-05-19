@@ -6,14 +6,14 @@ This project includes a declarative Jenkins pipeline in `Jenkinsfile`.
 
 - Python 3.10 available as `python3.10`, `py -3.10`, or `python`. On Linux agents without Python 3.10, the pipeline installs `uv` with `curl` and creates a Python 3.10 virtual environment.
 - `curl` installed on Linux agents when Python 3.10 is not already available
-- Docker installed if `BUILD_DOCKER` or `DEPLOY_LOCAL` is enabled
+- Docker installed if `BUILD_DOCKER` or `DEPLOY_LOCAL` is enabled. The pipeline detects Docker and skips Docker stages when it is not available.
 - Network access to PyPI and Hugging Face for dependency and model downloads
 
 ## Pipeline parameters
 
 - `RUN_TRAIN`: runs a short 1 epoch training smoke test. Disabled by default because model downloads and CPU training are slow.
-- `BUILD_DOCKER`: builds the Docker image. Enabled by default.
-- `DEPLOY_LOCAL`: runs the API container on the Jenkins agent.
+- `BUILD_DOCKER`: builds the Docker image when Docker is available. Enabled by default.
+- `DEPLOY_LOCAL`: runs the API container on the Jenkins agent when Docker is available.
 - `RUN_ID`: MLflow run ID to serve when `DEPLOY_LOCAL` is enabled.
 - `DOCKER_IMAGE`: Docker image name. Default: `hugging-face-classifier`.
 - `GITHUB_USERNAME`: username propagated to Ray runtime environment. Default: `jenkins`.

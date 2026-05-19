@@ -40,13 +40,26 @@ pipeline {
                             if command -v python3.10 >/dev/null 2>&1; then
                                 python3.10 -m venv .venv
                             else
-                                if ! command -v curl >/dev/null 2>&1; then
-                                    echo "curl is required to install uv when python3.10 is missing."
+                                export UV_PYTHON_INSTALL_DIR="$WORKSPACE/.uv-python"
+                                if command -v curl >/dev/null 2>&1; then
+                                    curl -LsSf https://astral.sh/uv/install.sh | sh
+                                elif command -v python3 >/dev/null 2>&1; then
+                                    python3 - <<'PY'
+import urllib.request
+
+url = "https://astral.sh/uv/install.sh"
+with urllib.request.urlopen(url, timeout=60) as response:
+    script = response.read()
+with open("install-uv.sh", "wb") as fp:
+    fp.write(script)
+PY
+                                    sh install-uv.sh
+                                else
+                                    echo "python3.10 is missing, and neither curl nor python3 is available to install uv."
                                     exit 1
                                 fi
-                                curl -LsSf https://astral.sh/uv/install.sh | sh
                                 export PATH="$HOME/.local/bin:$PATH"
-                                uv venv --python 3.10 .venv
+                                uv venv --python 3.10 --seed .venv
                             fi
                             . .venv/bin/activate
                             python --version
@@ -131,6 +144,21 @@ pipeline {
             }
         }
 
+        stage('Detect Docker') {
+            steps {
+                script {
+                    if (isUnix()) {
+                        def status = sh(returnStatus: true, script: 'command -v docker >/dev/null 2>&1 && docker version >/dev/null 2>&1')
+                        env.HAS_DOCKER = status == 0 ? 'true' : 'false'
+                    } else {
+                        def status = bat(returnStatus: true, script: 'docker version >NUL 2>NUL')
+                        env.HAS_DOCKER = status == 0 ? 'true' : 'false'
+                    }
+                    echo "Docker available: ${env.HAS_DOCKER}"
+                }
+            }
+        }
+
         stage('Short Train Smoke') {
             when {
                 expression { return params.RUN_TRAIN }
@@ -165,7 +193,7 @@ pipeline {
 
         stage('Docker Build') {
             when {
-                expression { return params.BUILD_DOCKER }
+                expression { return params.BUILD_DOCKER && env.HAS_DOCKER == 'true' }
             }
             steps {
                 script {
@@ -183,7 +211,7 @@ pipeline {
 
         stage('Docker Smoke') {
             when {
-                expression { return params.BUILD_DOCKER }
+                expression { return params.BUILD_DOCKER && env.HAS_DOCKER == 'true' }
             }
             steps {
                 script {
@@ -203,6 +231,7 @@ pipeline {
                 allOf {
                     expression { return params.DEPLOY_LOCAL }
                     expression { return params.RUN_ID?.trim() }
+                    expression { return env.HAS_DOCKER == 'true' }
                 }
             }
             steps {
