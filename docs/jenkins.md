@@ -65,3 +65,39 @@ The local deployment exposes the API on:
 ```text
 http://<jenkins-agent-host>:8000/docs
 ```
+
+## Run Jenkins with Docker Compose
+
+This repository includes a Docker Compose setup for running the CI/CD controller locally.
+
+Start Jenkins:
+
+```bash
+docker compose up -d --build
+```
+
+Open Jenkins:
+
+```text
+http://localhost:8080
+```
+
+The Compose Jenkins image includes `git`, `curl`, the Docker CLI, and the Jenkins plugins needed by the pipeline (`workflow-aggregator`, `git`, `timestamper`, and `docker-workflow`). It also mounts `/var/run/docker.sock`, so Jenkins can run Docker stages such as `BUILD_DOCKER` and `DEPLOY_LOCAL` when Docker is available on the host.
+
+Get the first admin password:
+
+```bash
+docker compose exec jenkins cat /var/jenkins_home/secrets/initialAdminPassword
+```
+
+Stop Jenkins:
+
+```bash
+docker compose down
+```
+
+Remove Jenkins data as well:
+
+```bash
+docker compose down -v
+```
