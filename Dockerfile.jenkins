@@ -10,11 +10,15 @@ RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         ca-certificates \
         curl \
+        docker-compose \
         git \
         python3 \
         python3-venv \
     && apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
+    rm -rf /var/lib/apt/lists/* && \
+    mkdir -p /usr/local/lib/docker/cli-plugins && \
+    printf '#!/bin/sh\nexec docker-compose "$@"\n' > /usr/local/lib/docker/cli-plugins/docker-compose && \
+    chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
 
 COPY cicd/jenkins/plugins.txt /usr/share/jenkins/ref/plugins.txt
 RUN jenkins-plugin-cli --plugin-file /usr/share/jenkins/ref/plugins.txt
