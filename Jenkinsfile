@@ -456,6 +456,7 @@ PY
                             export RUN_ID="${env.DEPLOY_RUN_ID}"
                             export GITHUB_USERNAME="${env.GITHUB_USERNAME}"
                             export DOCKER_IMAGE="${imageForCompose}"
+                            docker rm -f mlops-prometheus mlops-grafana hugging-face-serve >/dev/null 2>&1 || true
                             \$COMPOSE --profile serve up -d --build hugging-face-serve prometheus grafana
                             \$COMPOSE ps
                         """
@@ -464,6 +465,7 @@ PY
                             set RUN_ID=${env.DEPLOY_RUN_ID}
                             set GITHUB_USERNAME=%GITHUB_USERNAME%
                             set DOCKER_IMAGE=${imageForCompose}
+                            docker rm -f mlops-prometheus mlops-grafana hugging-face-serve 2>NUL
                             docker compose version >NUL 2>NUL
                             if %ERRORLEVEL% EQU 0 (
                                 docker compose --profile serve up -d --build hugging-face-serve prometheus grafana

@@ -26,7 +26,6 @@ services:
       context: .
       dockerfile: Dockerfile
     image: ${DOCKER_IMAGE:-hugging-face-classifier:monitoring}
-    container_name: hugging-face-serve
     shm_size: 3g
     ports:
       - "8000:8000"
@@ -56,7 +55,6 @@ services:
 
   prometheus:
     image: prom/prometheus:v2.52.0
-    container_name: mlops-prometheus
     ports:
       - "9090:9090"
     volumes:
@@ -73,7 +71,6 @@ services:
 
   grafana:
     image: grafana/grafana:10.4.2
-    container_name: mlops-grafana
     ports:
       - "3001:3000"
     environment:
