@@ -36,7 +36,7 @@ pipeline {
         MADEWITHML_EFS_DIR = '/mlops-storage'
         PIP_DISABLE_PIP_VERSION_CHECK = '1'
         PYTHONUNBUFFERED = '1'
-        DOCKER_BUILDKIT = '1'
+        DOCKER_BUILDKIT = '0'
     }
 
     stages {
