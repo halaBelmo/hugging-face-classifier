@@ -87,6 +87,7 @@ def collate_fn(batch: Dict[str, np.ndarray]) -> Dict[str, torch.Tensor]:  # prag
     dtypes = {"ids": torch.int32, "masks": torch.int32, "targets": torch.int64}
     tensor_batch = {}
     for key, array in batch.items():
+        array = np.asarray(array).copy()
         tensor_batch[key] = torch.as_tensor(array, dtype=dtypes[key], device=get_device())
     return tensor_batch
 
