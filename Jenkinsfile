@@ -457,6 +457,11 @@ PY
                             export GITHUB_USERNAME="${env.GITHUB_USERNAME}"
                             export DOCKER_IMAGE="${imageForCompose}"
                             docker rm -f mlops-prometheus mlops-grafana hugging-face-serve >/dev/null 2>&1 || true
+                            # Ensure compose is available in PATH
+                            if ! command -v docker-compose >/dev/null 2>&1 && ! command -v "docker" >/dev/null 2>&1; then
+                                echo "ERROR: docker-compose / docker compose not found in PATH" >&2
+                                exit 127
+                            fi
                             \$COMPOSE --profile serve up -d --build hugging-face-serve prometheus grafana
                             \$COMPOSE ps
                         """
