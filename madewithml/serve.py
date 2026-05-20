@@ -7,6 +7,7 @@ from typing import Dict
 import ray
 import uvicorn
 from fastapi import FastAPI
+from prometheus_fastapi_instrumentator import Instrumentator
 from ray import serve
 from starlette.requests import Request
 
@@ -40,6 +41,7 @@ def create_app(run_id: str, threshold: float = 0.9) -> FastAPI:
         description="Classify machine learning projects.",
         version="0.1",
     )
+    Instrumentator().instrument(local_app).expose(local_app)
     mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
     best_checkpoint = predict.get_best_checkpoint(run_id=run_id)
     predictor = predict.TorchPredictor.from_checkpoint(best_checkpoint)

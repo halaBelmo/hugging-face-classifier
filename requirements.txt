@@ -7,6 +7,7 @@ nltk==3.8.1
 numpy==1.26.3
 numpyencoder==0.3.0
 pandas==2.0.1
+prometheus-fastapi-instrumentator==6.1.0
 python-dotenv==1.0.0
 ray[air]==2.7.0
 scikit-learn==1.2.2

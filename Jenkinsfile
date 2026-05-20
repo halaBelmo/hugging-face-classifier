@@ -7,11 +7,17 @@ pipeline {
         buildDiscarder(logRotator(numToKeepStr: '10'))
     }
 
+    triggers {
+        pollSCM('H/2 * * * *')
+    }
+
     parameters {
-        booleanParam(name: 'RUN_TRAIN', defaultValue: false, description: 'Run a short training job during CI.')
-        booleanParam(name: 'RUN_EVALUATE', defaultValue: false, description: 'Evaluate a trained model during CI.')
-        booleanParam(name: 'BUILD_DOCKER', defaultValue: false, description: 'Build the Docker image when Docker is available.')
+        booleanParam(name: 'RUN_TRAIN', defaultValue: true, description: 'Run a short training job during CI.')
+        booleanParam(name: 'RUN_EVALUATE', defaultValue: true, description: 'Evaluate a trained model during CI.')
+        booleanParam(name: 'BUILD_DOCKER', defaultValue: true, description: 'Build the Docker image when Docker is available.')
+        booleanParam(name: 'PUSH_DOCKER', defaultValue: false, description: 'Push the Docker image to a registry.')
         booleanParam(name: 'DEPLOY_LOCAL', defaultValue: false, description: 'Run the API container on this Jenkins agent.')
+        booleanParam(name: 'DEPLOY_COMPOSE', defaultValue: true, description: 'Deploy the app, Prometheus, and Grafana with Docker Compose.')
         string(name: 'TRAIN_EPOCHS', defaultValue: '10', description: 'Number of epochs to run when RUN_TRAIN is enabled.')
         string(name: 'TRAIN_SAMPLES', defaultValue: '100', description: 'Number of samples to train on when RUN_TRAIN is enabled.')
         string(name: 'TRAIN_BATCH_SIZE', defaultValue: '8', description: 'Batch size to use when RUN_TRAIN is enabled.')
@@ -20,11 +26,14 @@ pipeline {
         string(name: 'EVALUATE_RESULTS_FP', defaultValue: 'evaluation-ci.json', description: 'Evaluation results JSON output path.')
         string(name: 'RUN_ID', defaultValue: '', description: 'MLflow run_id to serve when DEPLOY_LOCAL is enabled.')
         string(name: 'DOCKER_IMAGE', defaultValue: 'hugging-face-classifier', description: 'Docker image name.')
+        string(name: 'DOCKER_REGISTRY', defaultValue: '', description: 'Optional registry namespace, for example docker.io/myuser or ghcr.io/myorg.')
+        string(name: 'DOCKER_CREDENTIALS_ID', defaultValue: 'docker-registry', description: 'Jenkins username/password credentials ID for Docker push.')
         string(name: 'GITHUB_USERNAME', defaultValue: 'jenkins', description: 'Username propagated to Ray runtime_env.')
     }
 
     environment {
         GITHUB_USERNAME = "${params.GITHUB_USERNAME}"
+        MADEWITHML_EFS_DIR = '/mlops-storage'
         PIP_DISABLE_PIP_VERSION_CHECK = '1'
         PYTHONUNBUFFERED = '1'
         DOCKER_BUILDKIT = '1'
@@ -168,12 +177,18 @@ PY
 
         stage('Validate Docker Requirement') {
             when {
-                expression { return params.BUILD_DOCKER || params.DEPLOY_LOCAL }
+                expression { return params.BUILD_DOCKER || params.PUSH_DOCKER || params.DEPLOY_LOCAL || params.DEPLOY_COMPOSE }
             }
             steps {
                 script {
                     if (env.HAS_DOCKER != 'true') {
-                        error('Docker is required because BUILD_DOCKER or DEPLOY_LOCAL is enabled, but Docker is not available on this Jenkins agent.')
+                        error('Docker is required because a Docker build, push, or deploy stage is enabled, but Docker is not available on this Jenkins agent.')
+                    }
+                    if ((params.DEPLOY_LOCAL || params.DEPLOY_COMPOSE) && !params.RUN_ID?.trim() && !params.RUN_TRAIN) {
+                        error('RUN_ID is required when deployment is enabled without RUN_TRAIN. Enable RUN_TRAIN or provide RUN_ID.')
+                    }
+                    if (params.PUSH_DOCKER && !params.BUILD_DOCKER) {
+                        error('PUSH_DOCKER requires BUILD_DOCKER=true so Jenkins has an image to push.')
                     }
                 }
             }
@@ -258,6 +273,26 @@ PY
                             ${evaluateCommand}
                         """
                     }
+                    if (fileExists('results-ci.json')) {
+                        if (isUnix()) {
+                            env.TRAINED_RUN_ID = sh(
+                                returnStdout: true,
+                                script: '''
+                                    . .venv/bin/activate
+                                    python -c "import json; print(json.load(open('results-ci.json'))['run_id'])"
+                                '''
+                            ).trim()
+                        } else {
+                            env.TRAINED_RUN_ID = bat(
+                                returnStdout: true,
+                                script: '''
+                                    @call .venv\\Scripts\\activate.bat
+                                    @python -c "import json; print(json.load(open('results-ci.json'))['run_id'])"
+                                '''
+                            ).trim()
+                        }
+                        echo "Trained run_id: ${env.TRAINED_RUN_ID}"
+                    }
                 }
             }
             post {
@@ -273,14 +308,18 @@ PY
             }
             steps {
                 script {
-                    def imageTag = "${params.DOCKER_IMAGE}:${env.BUILD_NUMBER}"
-                    def latestTag = "${params.DOCKER_IMAGE}:latest"
+                    def registry = params.DOCKER_REGISTRY?.trim()
+                    def imageRepo = registry ? "${registry}/${params.DOCKER_IMAGE}" : params.DOCKER_IMAGE
+                    def imageTag = "${imageRepo}:${env.BUILD_NUMBER}"
+                    def latestTag = "${imageRepo}:latest"
                     if (isUnix()) {
                         sh "docker build -t ${imageTag} -t ${latestTag} ."
                     } else {
                         bat "docker build -t ${imageTag} -t ${latestTag} ."
                     }
                     env.BUILT_IMAGE = imageTag
+                    env.LATEST_IMAGE = latestTag
+                    env.IMAGE_REPO = imageRepo
                 }
             }
         }
@@ -302,12 +341,77 @@ PY
             }
         }
 
+        stage('Docker Push') {
+            when {
+                expression { return params.PUSH_DOCKER }
+            }
+            steps {
+                script {
+                    def registry = params.DOCKER_REGISTRY?.trim()
+                    if (!registry) {
+                        error('DOCKER_REGISTRY is required when PUSH_DOCKER=true, for example docker.io/myuser or ghcr.io/myorg.')
+                    }
+                    withCredentials([usernamePassword(credentialsId: params.DOCKER_CREDENTIALS_ID, usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {
+                        if (isUnix()) {
+                            sh """
+                                set -eux
+                                echo "\$DOCKER_PASSWORD" | docker login ${registry} -u "\$DOCKER_USERNAME" --password-stdin
+                                docker push ${env.BUILT_IMAGE}
+                                docker push ${env.LATEST_IMAGE}
+                            """
+                        } else {
+                            bat """
+                                echo %DOCKER_PASSWORD% | docker login ${registry} -u %DOCKER_USERNAME% --password-stdin
+                                docker push ${env.BUILT_IMAGE}
+                                docker push ${env.LATEST_IMAGE}
+                            """
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('Resolve Deploy Run ID') {
+            when {
+                expression { return params.DEPLOY_LOCAL || params.DEPLOY_COMPOSE }
+            }
+            steps {
+                script {
+                    def deployRunId = params.RUN_ID?.trim()
+                    if (!deployRunId) {
+                        deployRunId = env.TRAINED_RUN_ID?.trim()
+                    }
+                    if (!deployRunId && fileExists('results-ci.json')) {
+                        if (isUnix()) {
+                            deployRunId = sh(
+                                returnStdout: true,
+                                script: '''
+                                    . .venv/bin/activate
+                                    python -c "import json; print(json.load(open('results-ci.json'))['run_id'])"
+                                '''
+                            ).trim()
+                        } else {
+                            deployRunId = bat(
+                                returnStdout: true,
+                                script: '''
+                                    @call .venv\\Scripts\\activate.bat
+                                    @python -c "import json; print(json.load(open('results-ci.json'))['run_id'])"
+                                '''
+                            ).trim()
+                        }
+                    }
+                    if (!deployRunId) {
+                        error('No deploy run_id found. Provide RUN_ID or enable RUN_TRAIN so results-ci.json is produced.')
+                    }
+                    env.DEPLOY_RUN_ID = deployRunId
+                    echo "Deploying run_id: ${env.DEPLOY_RUN_ID}"
+                }
+            }
+        }
+
         stage('Deploy Local') {
             when {
-                allOf {
-                    expression { return params.DEPLOY_LOCAL }
-                    expression { return params.RUN_ID?.trim() }
-                }
+                expression { return params.DEPLOY_LOCAL }
             }
             steps {
                 script {
@@ -322,13 +426,86 @@ PY
                                 -e TRANSFORMERS_CACHE=/app/.hf_cache/transformers \
                                 -v "\$WORKSPACE/efs:/app/efs" \
                                 ${imageTag} \
-                                python -m madewithml.serve --run_id ${params.RUN_ID} --host 0.0.0.0 --port 8000
+                                python -m madewithml.serve --run_id ${env.DEPLOY_RUN_ID} --host 0.0.0.0 --port 8000
                         """
                     } else {
                         bat """
                             docker rm -f hugging-face-classifier-api 2>NUL
-                            docker run -d --name hugging-face-classifier-api -p 8000:8000 -e GITHUB_USERNAME=%GITHUB_USERNAME% -e HF_HOME=/app/.hf_cache -e TRANSFORMERS_CACHE=/app/.hf_cache/transformers -v "%WORKSPACE%\\efs:/app/efs" ${imageTag} python -m madewithml.serve --run_id ${params.RUN_ID} --host 0.0.0.0 --port 8000
+                            docker run -d --name hugging-face-classifier-api -p 8000:8000 -e GITHUB_USERNAME=%GITHUB_USERNAME% -e HF_HOME=/app/.hf_cache -e TRANSFORMERS_CACHE=/app/.hf_cache/transformers -v "%WORKSPACE%\\efs:/app/efs" ${imageTag} python -m madewithml.serve --run_id ${env.DEPLOY_RUN_ID} --host 0.0.0.0 --port 8000
                         """
+                    }
+                }
+            }
+        }
+
+        stage('Deploy Compose') {
+            when {
+                expression { return params.DEPLOY_COMPOSE }
+            }
+            steps {
+                script {
+                    def imageForCompose = env.LATEST_IMAGE ?: "${params.DOCKER_IMAGE}:latest"
+                    if (isUnix()) {
+                        sh """
+                            set -eux
+                            if docker compose version >/dev/null 2>&1; then
+                                COMPOSE="docker compose"
+                            else
+                                COMPOSE="docker-compose"
+                            fi
+                            export RUN_ID="${env.DEPLOY_RUN_ID}"
+                            export GITHUB_USERNAME="${env.GITHUB_USERNAME}"
+                            export DOCKER_IMAGE="${imageForCompose}"
+                            \$COMPOSE --profile serve up -d --build hugging-face-serve prometheus grafana
+                            \$COMPOSE ps
+                        """
+                    } else {
+                        bat """
+                            set RUN_ID=${env.DEPLOY_RUN_ID}
+                            set GITHUB_USERNAME=%GITHUB_USERNAME%
+                            set DOCKER_IMAGE=${imageForCompose}
+                            docker compose version >NUL 2>NUL
+                            if %ERRORLEVEL% EQU 0 (
+                                docker compose --profile serve up -d --build hugging-face-serve prometheus grafana
+                                docker compose ps
+                            ) else (
+                                docker-compose --profile serve up -d --build hugging-face-serve prometheus grafana
+                                docker-compose ps
+                            )
+                        """
+                    }
+                }
+            }
+        }
+
+        stage('Verify Deployment and Monitoring') {
+            when {
+                expression { return params.DEPLOY_COMPOSE }
+            }
+            steps {
+                script {
+                    if (isUnix()) {
+                        sh '''
+                            set -eux
+                            for i in $(seq 1 30); do
+                                if curl -fsS http://hugging-face-serve:8000/ >/tmp/app-health.json; then
+                                    break
+                                fi
+                                sleep 5
+                            done
+                            cat /tmp/app-health.json
+                            curl -fsS http://hugging-face-serve:8000/metrics | head
+                            curl -fsS http://prometheus:9090/-/ready
+                            curl -fsS http://grafana:3000/api/health
+                        '''
+                    } else {
+                        bat '''
+                            powershell -Command "$deadline=(Get-Date).AddMinutes(3); do { try { Invoke-WebRequest -UseBasicParsing http://localhost:8000/ | Out-File app-health.txt; exit 0 } catch { Start-Sleep -Seconds 5 } } while ((Get-Date) -lt $deadline); exit 1"
+                            type app-health.txt
+                            powershell -Command "Invoke-WebRequest -UseBasicParsing http://localhost:8000/metrics | Select-Object -ExpandProperty Content | Select-Object -First 1"
+                            powershell -Command "Invoke-WebRequest -UseBasicParsing http://localhost:9090/-/ready"
+                            powershell -Command "Invoke-WebRequest -UseBasicParsing http://localhost:3001/api/health"
+                        '''
                     }
                 }
             }
