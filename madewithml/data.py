@@ -52,6 +52,10 @@ def stratify_split(
     def _add_split(df: pd.DataFrame) -> pd.DataFrame:  # pragma: no cover, used in parent function
         """Naively split a dataframe into train and test splits.
         Add a column specifying whether it's the train or test split."""
+        if len(df) < 2:
+            df = df.copy()
+            df["_split"] = "train"
+            return df
         train, test = train_test_split(df, test_size=test_size, shuffle=shuffle, random_state=seed)
         train["_split"] = "train"
         test["_split"] = "test"

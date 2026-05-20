@@ -133,10 +133,16 @@ def train_loop_per_worker(config: dict) -> None:  # pragma: no cover, tested via
     num_workers = train.get_context().get_world_size()
     batch_size_per_worker = batch_size // num_workers
     for epoch in range(num_epochs):
+        logger.info(f"Starting epoch {epoch + 1}/{num_epochs}")
+
         # Step
         train_loss = train_step(train_ds, batch_size_per_worker, model, num_classes, loss_fn, optimizer)
         val_loss, _, _ = eval_step(val_ds, batch_size_per_worker, model, num_classes, loss_fn)
         scheduler.step(val_loss)
+        logger.info(
+            f"Finished epoch {epoch + 1}/{num_epochs}: "
+            f"train_loss={train_loss:.4f}, val_loss={val_loss:.4f}"
+        )
 
         # Checkpoint
         with tempfile.TemporaryDirectory() as dp:
@@ -263,5 +269,11 @@ def train_model(
 if __name__ == "__main__":  # pragma: no cover, application
     if ray.is_initialized():
         ray.shutdown()
-    ray.init(num_gpus=0, runtime_env={"env_vars": {"GITHUB_USERNAME": os.environ["GITHUB_USERNAME"]}})
+    torch.set_num_threads(int(os.environ.get("MADEWITHML_TORCH_NUM_THREADS", "2")))
+    ray.init(
+        num_cpus=int(os.environ.get("MADEWITHML_TRAIN_NUM_CPUS", "2")),
+        num_gpus=0,
+        include_dashboard=False,
+        runtime_env={"env_vars": {"GITHUB_USERNAME": os.environ["GITHUB_USERNAME"]}},
+    )
     app()
