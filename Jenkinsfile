@@ -28,7 +28,7 @@ pipeline {
         string(name: 'DOCKER_IMAGE', defaultValue: 'hugging-face-classifier', description: 'Docker image name.')
         string(name: 'DOCKER_REGISTRY', defaultValue: '', description: 'Optional registry namespace, for example docker.io/myuser or ghcr.io/myorg.')
         string(name: 'DOCKER_CREDENTIALS_ID', defaultValue: 'docker-registry', description: 'Jenkins username/password credentials ID for Docker push.')
-        string(name: 'GITHUB_USERNAME', defaultValue: 'jenkins', description: 'Username propagated to Ray runtime_env.')
+        string(name: 'GITHUB_USERNAME', defaultValue: 'jenkins', description: 'Username propagated to the training and serving runtime.')
     }
 
     environment {
@@ -120,7 +120,7 @@ PY
                 script {
                     def smoke = '''
                         python -m compileall madewithml
-                        python -c "import ray, mlflow, pandas, sklearn, torch, transformers; print('ray', ray.__version__); print('mlflow', mlflow.__version__); print('pandas', pandas.__version__); print('sklearn', sklearn.__version__); print('torch', torch.__version__); print('transformers', transformers.__version__)"
+                        python -c "import mlflow, pandas, sklearn, torch, transformers; print('mlflow', mlflow.__version__); print('pandas', pandas.__version__); print('sklearn', sklearn.__version__); print('torch', torch.__version__); print('transformers', transformers.__version__)"
                     '''
                     if (isUnix()) {
                         sh """

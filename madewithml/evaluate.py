@@ -1,14 +1,11 @@
 import datetime
 import json
-import os
 from collections import OrderedDict
 from typing import Dict
 
 import numpy as np
-import ray
-import ray.train.torch  # NOQA: F401 (imported but unused)
+import pandas as pd
 import typer
-from ray.data import Dataset
 from sklearn.metrics import precision_recall_fscore_support
 from snorkel.slicing import PandasSFApplier, slicing_function
 from typing_extensions import Annotated
@@ -17,56 +14,36 @@ from madewithml import predict, utils
 from madewithml.config import logger
 from madewithml.predict import TorchPredictor
 
-# Initialize Typer CLI app
 app = typer.Typer()
 
 
-def get_overall_metrics(y_true: np.ndarray, y_pred: np.ndarray) -> Dict:  # pragma: no cover, eval workload
-    """Get overall performance metrics.
-
-    Args:
-        y_true (np.ndarray): ground truth labels.
-        y_pred (np.ndarray): predicted labels.
-
-    Returns:
-        Dict: overall metrics.
-    """
-    metrics = precision_recall_fscore_support(y_true, y_pred, average="weighted")
-    overall_metrics = {
+def get_overall_metrics(y_true: np.ndarray, y_pred: np.ndarray) -> Dict:
+    metrics = precision_recall_fscore_support(y_true, y_pred, average="weighted", zero_division=0)
+    return {
         "precision": metrics[0],
         "recall": metrics[1],
         "f1": metrics[2],
         "num_samples": np.float64(len(y_true)),
     }
-    return overall_metrics
 
 
-def get_per_class_metrics(y_true: np.ndarray, y_pred: np.ndarray, class_to_index: Dict) -> Dict:  # pragma: no cover, eval workload
-    """Get per class performance metrics.
-
-    Args:
-        y_true (np.ndarray): ground truth labels.
-        y_pred (np.ndarray): predicted labels.
-        class_to_index (Dict): dictionary mapping class to index.
-
-    Returns:
-        Dict: per class metrics.
-    """
+def get_per_class_metrics(y_true: np.ndarray, y_pred: np.ndarray, class_to_index: Dict) -> Dict:
+    labels = list(class_to_index.values())
+    metrics = precision_recall_fscore_support(y_true, y_pred, labels=labels, average=None, zero_division=0)
     per_class_metrics = {}
-    metrics = precision_recall_fscore_support(y_true, y_pred, average=None)
-    for i, _class in enumerate(class_to_index):
+    for _class, index in class_to_index.items():
+        i = labels.index(index)
         per_class_metrics[_class] = {
             "precision": metrics[0][i],
             "recall": metrics[1][i],
             "f1": metrics[2][i],
             "num_samples": np.float64(metrics[3][i]),
         }
-    sorted_per_class_metrics = OrderedDict(sorted(per_class_metrics.items(), key=lambda tag: tag[1]["f1"], reverse=True))
-    return sorted_per_class_metrics
+    return OrderedDict(sorted(per_class_metrics.items(), key=lambda tag: tag[1]["f1"], reverse=True))
 
 
 @slicing_function()
-def nlp_llm(x):  # pragma: no cover, eval workload
+def nlp_llm(x):
     """NLP projects that use LLMs."""
     nlp_project = "natural-language-processing" in x.tag
     llm_terms = ["transformer", "llm", "bert"]
@@ -75,34 +52,26 @@ def nlp_llm(x):  # pragma: no cover, eval workload
 
 
 @slicing_function()
-def short_text(x):  # pragma: no cover, eval workload
+def short_text(x):
     """Projects with short titles and descriptions."""
-    return len(x.text.split()) < 8  # less than 8 words
+    return len(x.text.split()) < 8
 
 
-def get_slice_metrics(y_true: np.ndarray, y_pred: np.ndarray, ds: Dataset) -> Dict:  # pragma: no cover, eval workload
-    """Get performance metrics for slices.
-
-    Args:
-        y_true (np.ndarray): ground truth labels.
-        y_pred (np.ndarray): predicted labels.
-        ds (Dataset): Ray dataset with labels.
-    Returns:
-        Dict: performance metrics for slices.
-    """
+def get_slice_metrics(y_true: np.ndarray, y_pred: np.ndarray, df: pd.DataFrame) -> Dict:
     slice_metrics = {}
-    df = ds.to_pandas()
-    df["text"] = df["title"] + " " + df["description"]
+    df = df.copy()
+    df["text"] = df["title"].fillna("") + " " + df["description"].fillna("")
     slices = PandasSFApplier([nlp_llm, short_text]).apply(df)
     for slice_name in slices.dtype.names:
         mask = slices[slice_name].astype(bool)
         if sum(mask):
-            metrics = precision_recall_fscore_support(y_true[mask], y_pred[mask], average="micro")
-            slice_metrics[slice_name] = {}
-            slice_metrics[slice_name]["precision"] = metrics[0]
-            slice_metrics[slice_name]["recall"] = metrics[1]
-            slice_metrics[slice_name]["f1"] = metrics[2]
-            slice_metrics[slice_name]["num_samples"] = len(y_true[mask])
+            metrics = precision_recall_fscore_support(y_true[mask], y_pred[mask], average="micro", zero_division=0)
+            slice_metrics[slice_name] = {
+                "precision": metrics[0],
+                "recall": metrics[1],
+                "f1": metrics[2],
+                "num_samples": len(y_true[mask]),
+            }
     return slice_metrics
 
 
@@ -111,61 +80,31 @@ def evaluate(
     run_id: Annotated[str, typer.Option(help="id of the specific run to load from")] = None,
     dataset_loc: Annotated[str, typer.Option(help="dataset (with labels) to evaluate on")] = None,
     results_fp: Annotated[str, typer.Option(help="location to save evaluation results to")] = None,
-) -> Dict:  # pragma: no cover, eval workload
-    """Evaluate on the holdout dataset.
-
-    Args:
-        run_id (str): id of the specific run to load from. Defaults to None.
-        dataset_loc (str): dataset (with labels) to evaluate on.
-        results_fp (str, optional): location to save evaluation results to. Defaults to None.
-
-    Returns:
-        Dict: model's performance metrics on the dataset.
-    """
-    # Load
-    num_blocks = int(os.environ.get("MADEWITHML_EVALUATE_NUM_BLOCKS", "1"))
-    ds = ray.data.read_csv(dataset_loc).repartition(num_blocks)
-    best_checkpoint = predict.get_best_checkpoint(run_id=run_id)
-    predictor = TorchPredictor.from_checkpoint(best_checkpoint)
-
-    # y_true
+) -> Dict:
+    """Evaluate on the holdout dataset."""
+    df = pd.read_csv(dataset_loc)
+    predictor = TorchPredictor.from_model_dir(predict.get_model_dir(run_id=run_id))
     preprocessor = predictor.get_preprocessor()
-    preprocessed_ds = preprocessor.transform(ds).repartition(num_blocks)
-    values = preprocessed_ds.select_columns(cols=["targets"]).take_all()
-    y_true = np.stack([item["targets"] for item in values])
+    df = df[df["tag"].isin(preprocessor.class_to_index)].reset_index(drop=True)
+    if df.empty:
+        raise ValueError("No evaluation rows match the classes learned during training.")
 
-    # y_pred
-    # IMPORTANT: keep evaluation memory-friendly for CI/Jenkins.
-    # Ray may start too many workers and crash (raylet died / OOM) if the cluster is small.
-    # We limit parallelism by forcing a small number of blocks.
-    predictions = (
-        preprocessed_ds
-        .map_batches(predictor, batch_size=16)
-        .materialize()
-        .take_all()
-    )
-    y_pred = np.array([d["output"] for d in predictions])
+    encoded = preprocessor.transform(df)
+    y_true = encoded["targets"]
+    y_pred = predictor(encoded)
 
-
-    # Metrics
     metrics = {
         "timestamp": datetime.datetime.now().strftime("%B %d, %Y %I:%M:%S %p"),
         "run_id": run_id,
         "overall": get_overall_metrics(y_true=y_true, y_pred=y_pred),
         "per_class": get_per_class_metrics(y_true=y_true, y_pred=y_pred, class_to_index=preprocessor.class_to_index),
-        "slices": get_slice_metrics(y_true=y_true, y_pred=y_pred, ds=ds),
+        "slices": get_slice_metrics(y_true=y_true, y_pred=y_pred, df=df),
     }
     logger.info(json.dumps(metrics, indent=2))
-    if results_fp:  # pragma: no cover, saving results
+    if results_fp:
         utils.save_dict(d=metrics, path=results_fp)
     return metrics
 
 
-if __name__ == "__main__":  # pragma: no cover, checked during evaluation workload
-    if ray.is_initialized():
-        ray.shutdown()
-    ray.init(
-        num_cpus=int(os.environ.get("MADEWITHML_EVALUATE_NUM_CPUS", "2")),
-        include_dashboard=False,
-    )
+if __name__ == "__main__":
     app()

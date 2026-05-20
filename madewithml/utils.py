@@ -5,12 +5,6 @@ from typing import Any, Dict, List
 
 import numpy as np
 import torch
-from ray.data import DatasetContext
-from ray.train.torch import get_device
-
-from madewithml.config import mlflow
-
-DatasetContext.get_current().execution_options.preserve_order = True
 
 
 def set_seeds(seed: int = 42):
@@ -84,27 +78,13 @@ def collate_fn(batch: Dict[str, np.ndarray]) -> Dict[str, torch.Tensor]:  # prag
     """
     batch["ids"] = pad_array(batch["ids"])
     batch["masks"] = pad_array(batch["masks"])
-    dtypes = {"ids": torch.int32, "masks": torch.int32, "targets": torch.int64}
+    dtypes = {"ids": torch.int64, "masks": torch.int64, "targets": torch.int64}
     tensor_batch = {}
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     for key, array in batch.items():
         array = np.asarray(array).copy()
-        tensor_batch[key] = torch.as_tensor(array, dtype=dtypes[key], device=get_device())
+        tensor_batch[key] = torch.as_tensor(array, dtype=dtypes[key], device=device)
     return tensor_batch
-
-
-def get_run_id(experiment_name: str, trial_id: str) -> str:  # pragma: no cover, mlflow functionality
-    """Get the MLflow run ID for a specific Ray trial ID.
-
-    Args:
-        experiment_name (str): name of the experiment.
-        trial_id (str): id of the trial.
-
-    Returns:
-        str: run id of the trial.
-    """
-    trial_name = f"TorchTrainer_{trial_id}"
-    run = mlflow.search_runs(experiment_names=[experiment_name], filter_string=f"tags.trial_name = '{trial_name}'").iloc[0]
-    return run.run_id
 
 
 def dict_to_list(data: Dict, keys: List[str]) -> List[Dict[str, Any]]:

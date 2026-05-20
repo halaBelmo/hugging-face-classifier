@@ -1,6 +1,6 @@
 # Hugging Face Classifier
 
-Projet MLOps de classification de projets avec un modele Hugging Face/Scibert, Ray Train, MLflow, FastAPI, Jenkins et Docker.
+Projet MLOps de classification de projets avec un modele Hugging Face/Scibert, PyTorch, MLflow, FastAPI, Jenkins et Docker.
 
 ## Objectif
 
@@ -8,7 +8,7 @@ Ce projet entraine un modele de classification de texte sur des projets techniqu
 
 ## Structure
 
-- `madewithml/train.py`: entrainement Ray Train et logging MLflow.
+- `madewithml/train.py`: entrainement PyTorch et logging MLflow.
 - `madewithml/evaluate.py`: evaluation du modele sur un dataset labelise.
 - `madewithml/serve.py`: API FastAPI pour servir le modele.
 - `datasets/dataset.csv`: dataset principal pour l'entrainement.
@@ -49,7 +49,7 @@ La pipeline Jenkins contient les stages suivants:
 - `EVALUATE_RESULTS_FP`: fichier JSON de sortie. Defaut: `evaluation-ci.json`.
 - `RUN_ID`: run MLflow a servir avec l'API.
 - `DOCKER_IMAGE`: nom de l'image Docker. Defaut: `hugging-face-classifier`.
-- `GITHUB_USERNAME`: username propage au runtime Ray.
+- `GITHUB_USERNAME`: username propage au runtime applicatif.
 
 Pour entrainer et evaluer dans le meme build:
 
