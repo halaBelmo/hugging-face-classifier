@@ -1,5 +1,6 @@
 import datetime
 import json
+import os
 from collections import OrderedDict
 from typing import Dict
 
@@ -122,13 +123,14 @@ def evaluate(
         Dict: model's performance metrics on the dataset.
     """
     # Load
-    ds = ray.data.read_csv(dataset_loc)
+    num_blocks = int(os.environ.get("MADEWITHML_EVALUATE_NUM_BLOCKS", "1"))
+    ds = ray.data.read_csv(dataset_loc).repartition(num_blocks)
     best_checkpoint = predict.get_best_checkpoint(run_id=run_id)
     predictor = TorchPredictor.from_checkpoint(best_checkpoint)
 
     # y_true
     preprocessor = predictor.get_preprocessor()
-    preprocessed_ds = preprocessor.transform(ds)
+    preprocessed_ds = preprocessor.transform(ds).repartition(num_blocks)
     values = preprocessed_ds.select_columns(cols=["targets"]).take_all()
     y_true = np.stack([item["targets"] for item in values])
 
@@ -138,7 +140,7 @@ def evaluate(
     # We limit parallelism by forcing a small number of blocks.
     predictions = (
         preprocessed_ds
-        .map_batches(predictor)
+        .map_batches(predictor, batch_size=16)
         .materialize()
         .take_all()
     )
@@ -160,4 +162,10 @@ def evaluate(
 
 
 if __name__ == "__main__":  # pragma: no cover, checked during evaluation workload
+    if ray.is_initialized():
+        ray.shutdown()
+    ray.init(
+        num_cpus=int(os.environ.get("MADEWITHML_EVALUATE_NUM_CPUS", "2")),
+        include_dashboard=False,
+    )
     app()
