@@ -1,0 +1,21 @@
+git clone https://github.com/halaBelmo/hugging-face-classifier.git
+cd hugging-face-classifier
+git checkout dev
+
+py -3.10 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python --version
+
+python -m pip install --upgrade pip
+pip install -r requirements.txt 
+
+$env:GITHUB_USERNAME="PC"
+python -m madewithml.train --num-epochs 10 
+
+python -m madewithml.serve --run_id TON_RUN_ID
+
+
+curl http://127.0.0.1:8000/
+curl -X POST "http://127.0.0.1:8000/predict/?title=YOLO%20object%20detection&description=Computer%20vision%20project%20using%20CNN%20and%20object%20detection"
+http://127.0.0.1:8000/docs
+
