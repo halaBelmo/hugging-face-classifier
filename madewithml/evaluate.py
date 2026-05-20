@@ -133,8 +133,17 @@ def evaluate(
     y_true = np.stack([item["targets"] for item in values])
 
     # y_pred
-    predictions = preprocessed_ds.map_batches(predictor).take_all()
+    # IMPORTANT: keep evaluation memory-friendly for CI/Jenkins.
+    # Ray may start too many workers and crash (raylet died / OOM) if the cluster is small.
+    # We limit parallelism by forcing a small number of blocks.
+    predictions = (
+        preprocessed_ds
+        .map_batches(predictor)
+        .materialize()
+        .take_all()
+    )
     y_pred = np.array([d["output"] for d in predictions])
+
 
     # Metrics
     metrics = {
