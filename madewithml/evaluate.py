@@ -82,7 +82,12 @@ def evaluate(
     results_fp: Annotated[str, typer.Option(help="location to save evaluation results to")] = None,
 ) -> Dict:
     """Evaluate on the holdout dataset."""
+    logger.info("Starting evaluation")
+    logger.info("Loading dataset from %s", dataset_loc)
     df = pd.read_csv(dataset_loc)
+    logger.info("Loaded %d rows", len(df))
+
+    logger.info("Loading model for run_id=%s", run_id)
     predictor = TorchPredictor.from_model_dir(predict.get_model_dir(run_id=run_id))
     preprocessor = predictor.get_preprocessor()
     df = df[df["tag"].isin(preprocessor.class_to_index)].reset_index(drop=True)
@@ -101,7 +106,9 @@ def evaluate(
         "slices": get_slice_metrics(y_true=y_true, y_pred=y_pred, df=df),
     }
     logger.info(json.dumps(metrics, indent=2))
+    logger.info("Evaluation finished")
     if results_fp:
+        logger.info("Saving results to %s", results_fp)
         utils.save_dict(d=metrics, path=results_fp)
     return metrics
 
