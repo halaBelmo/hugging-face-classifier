@@ -424,16 +424,17 @@ PY
                             docker run -d --name hugging-face-classifier-api \
                                 -p ${appPort}:8000 \
                                 -e GITHUB_USERNAME="${env.GITHUB_USERNAME}" \
+                                -e MADEWITHML_EFS_DIR=/mlops-storage \
                                 -e HF_HOME=/app/.hf_cache \
                                 -e TRANSFORMERS_CACHE=/app/.hf_cache/transformers \
-                                -v "\$WORKSPACE/efs:/app/efs" \
+                                -v hugging_face_classifier_storage:/mlops-storage \
                                 ${imageTag} \
                                 python -m madewithml.serve --run_id ${env.DEPLOY_RUN_ID} --host 0.0.0.0 --port 8000
                         """
                     } else {
                         bat """
                             docker rm -f hugging-face-classifier-api 2>NUL
-                            docker run -d --name hugging-face-classifier-api -p ${appPort}:8000 -e GITHUB_USERNAME=%GITHUB_USERNAME% -e HF_HOME=/app/.hf_cache -e TRANSFORMERS_CACHE=/app/.hf_cache/transformers -v "%WORKSPACE%\\efs:/app/efs" ${imageTag} python -m madewithml.serve --run_id ${env.DEPLOY_RUN_ID} --host 0.0.0.0 --port 8000
+                            docker run -d --name hugging-face-classifier-api -p ${appPort}:8000 -e GITHUB_USERNAME=%GITHUB_USERNAME% -e MADEWITHML_EFS_DIR=/mlops-storage -e HF_HOME=/app/.hf_cache -e TRANSFORMERS_CACHE=/app/.hf_cache/transformers -v hugging_face_classifier_storage:/mlops-storage ${imageTag} python -m madewithml.serve --run_id ${env.DEPLOY_RUN_ID} --host 0.0.0.0 --port 8000
                         """
                     }
                 }
