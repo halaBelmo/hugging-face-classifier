@@ -29,6 +29,7 @@ pipeline {
         string(name: 'DOCKER_REGISTRY', defaultValue: '', description: 'Optional registry namespace, for example docker.io/myuser or ghcr.io/myorg.')
         string(name: 'DOCKER_CREDENTIALS_ID', defaultValue: 'docker-registry', description: 'Jenkins username/password credentials ID for Docker push.')
         string(name: 'GITHUB_USERNAME', defaultValue: 'jenkins', description: 'Username propagated to the training and serving runtime.')
+        string(name: 'APP_PORT', defaultValue: '8001', description: 'Host port used when DEPLOY_LOCAL=true.')
     }
 
     environment {
@@ -416,11 +417,12 @@ PY
             steps {
                 script {
                     def imageTag = env.BUILT_IMAGE ?: "${params.DOCKER_IMAGE}:latest"
+                    def appPort = params.APP_PORT?.trim() ?: '8001'
                     if (isUnix()) {
                         sh """
                             docker rm -f hugging-face-classifier-api || true
                             docker run -d --name hugging-face-classifier-api \
-                                -p 8000:8000 \
+                                -p ${appPort}:8000 \
                                 -e GITHUB_USERNAME="${env.GITHUB_USERNAME}" \
                                 -e HF_HOME=/app/.hf_cache \
                                 -e TRANSFORMERS_CACHE=/app/.hf_cache/transformers \
@@ -431,7 +433,7 @@ PY
                     } else {
                         bat """
                             docker rm -f hugging-face-classifier-api 2>NUL
-                            docker run -d --name hugging-face-classifier-api -p 8000:8000 -e GITHUB_USERNAME=%GITHUB_USERNAME% -e HF_HOME=/app/.hf_cache -e TRANSFORMERS_CACHE=/app/.hf_cache/transformers -v "%WORKSPACE%\\efs:/app/efs" ${imageTag} python -m madewithml.serve --run_id ${env.DEPLOY_RUN_ID} --host 0.0.0.0 --port 8000
+                            docker run -d --name hugging-face-classifier-api -p ${appPort}:8000 -e GITHUB_USERNAME=%GITHUB_USERNAME% -e HF_HOME=/app/.hf_cache -e TRANSFORMERS_CACHE=/app/.hf_cache/transformers -v "%WORKSPACE%\\efs:/app/efs" ${imageTag} python -m madewithml.serve --run_id ${env.DEPLOY_RUN_ID} --host 0.0.0.0 --port 8000
                         """
                     }
                 }
