@@ -39,6 +39,7 @@ pyupgrade==3.3.2
 great-expectations==0.16.5
 pytest==7.3.1
 pytest-cov==4.0.0
+httpx==0.24.1
 
 # Development
 fastapi==0.95.2

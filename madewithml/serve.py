@@ -1,15 +1,18 @@
 import argparse
 import json
+import os
+from pathlib import Path
 from http import HTTPStatus
 from typing import Dict
 
 import pandas as pd
 import uvicorn
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from starlette.requests import Request
 
 from madewithml import evaluate, predict
-from madewithml.config import MLFLOW_TRACKING_URI, mlflow
+from madewithml.config import MLFLOW_TRACKING_URI, ROOT_DIR, logger, mlflow
+from madewithml.drift_monitor import DriftMonitor
 
 try:
     from prometheus_fastapi_instrumentator import Instrumentator
@@ -28,7 +31,15 @@ async def get_prediction_input(request: Request, title: str = "", description: s
     data = {}
     body = await request.body()
     if body:
-        data = json.loads(body)
+        try:
+            data = json.loads(body)
+        except json.JSONDecodeError as exc:
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid JSON body. Use a JSON object with double-quoted keys and values.",
+            ) from exc
+        if not isinstance(data, dict):
+            raise HTTPException(status_code=400, detail="Invalid JSON body. Expected an object.")
     return {
         "title": data.get("title", title) or "",
         "description": data.get("description", description) or "",
@@ -48,6 +59,55 @@ def make_json_safe(results):
     return safe_results
 
 
+def _is_enabled(value: str, default: bool = True) -> bool:
+    if value is None:
+        return default
+    return value.strip().lower() not in {"0", "false", "no", "off"}
+
+
+def _get_int_env(name: str, default: int) -> int:
+    raw = os.environ.get(name)
+    if raw is None:
+        return default
+    try:
+        value = int(raw)
+        if value < 1:
+            raise ValueError
+        return value
+    except ValueError:
+        logger.warning("Invalid %s=%s. Falling back to %s.", name, raw, default)
+        return default
+
+
+def _init_drift_monitor() -> DriftMonitor | None:
+    if not _is_enabled(os.environ.get("DRIFT_MONITOR_ENABLED"), default=True):
+        return None
+
+    baseline_path = Path(
+        os.environ.get("DRIFT_BASELINE_DATASET", str(Path(ROOT_DIR, "datasets", "dataset.csv")))
+    )
+    window_size = _get_int_env("DRIFT_WINDOW_SIZE", 500)
+    vocab_top_k = _get_int_env("DRIFT_VOCAB_TOP_K", 200)
+
+    if not baseline_path.exists():
+        logger.warning("Drift monitoring disabled: baseline dataset not found at %s", baseline_path)
+        return None
+
+    monitor = DriftMonitor.from_dataset_csv(
+        dataset_loc=str(baseline_path),
+        window_size=window_size,
+        vocab_top_k=vocab_top_k,
+        enable_prometheus_metrics=True,
+    )
+    logger.info(
+        "Drift monitoring enabled with baseline=%s, window_size=%s, vocab_top_k=%s",
+        baseline_path,
+        window_size,
+        vocab_top_k,
+    )
+    return monitor
+
+
 def create_app(run_id: str, threshold: float = 0.9) -> FastAPI:
     """Create a local FastAPI app."""
     local_app = FastAPI(
@@ -59,6 +119,7 @@ def create_app(run_id: str, threshold: float = 0.9) -> FastAPI:
         Instrumentator().instrument(local_app).expose(local_app)
     mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
     predictor = predict.TorchPredictor.from_model_dir(predict.get_model_dir(run_id=run_id))
+    drift_monitor = _init_drift_monitor()
 
     @local_app.get("/")
     def _index() -> Dict:
@@ -81,6 +142,11 @@ def create_app(run_id: str, threshold: float = 0.9) -> FastAPI:
     @local_app.post("/predict/")
     async def _predict(request: Request, title: str = "", description: str = ""):
         data = await get_prediction_input(request=request, title=title, description=description)
+        if drift_monitor is not None:
+            try:
+                drift_monitor.update(title=data["title"], description=data["description"])
+            except Exception as exc:  # pragma: no cover - monitoring must not block predictions
+                logger.warning("Drift metric update failed: %s", exc)
         sample_df = pd.DataFrame([{"title": data["title"], "description": data["description"], "tag": "other"}])
         results = predict.predict_proba(df=sample_df, predictor=predictor)
 
