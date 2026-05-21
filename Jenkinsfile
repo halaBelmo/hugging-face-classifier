@@ -466,12 +466,7 @@ PY
                                 echo "ERROR: docker-compose / docker compose not found in PATH" >&2
                                 exit 127
                             fi
-                            if [ -f /.dockerenv ]; then
-                                echo "Jenkins is running inside Docker; skipping Prometheus/Grafana bind mounts."
-                                \$COMPOSE --profile serve up -d --build hugging-face-serve
-                            else
-                                \$COMPOSE --profile serve up -d --build hugging-face-serve prometheus grafana
-                            fi
+                            \$COMPOSE --profile serve up -d --build hugging-face-serve prometheus grafana
                             \$COMPOSE ps
                         """
                     } else {
@@ -482,10 +477,10 @@ PY
                             docker rm -f mlops-prometheus mlops-grafana hugging-face-serve 2>NUL
                             docker compose version >NUL 2>NUL
                             if %ERRORLEVEL% EQU 0 (
-                                docker compose --profile serve up -d --build hugging-face-serve
+                                docker compose --profile serve up -d --build hugging-face-serve prometheus grafana
                                 docker compose ps
                             ) else (
-                                docker-compose --profile serve up -d --build hugging-face-serve
+                                docker-compose --profile serve up -d --build hugging-face-serve prometheus grafana
                                 docker-compose ps
                             )
                         """
@@ -511,10 +506,8 @@ PY
                             done
                             cat /tmp/app-health.json
                             curl -fsS http://hugging-face-serve:8000/metrics | head
-                            if [ ! -f /.dockerenv ]; then
-                                curl -fsS http://prometheus:9090/-/ready
-                                curl -fsS http://grafana:3000/api/health
-                            fi
+                            curl -fsS http://prometheus:9090/-/ready
+                            curl -fsS http://grafana:3000/api/health
                         '''
                     } else {
                         bat '''
