@@ -1,0 +1,251 @@
+RAPPORT TECHNIQUE COMPLET - PROJET MLOPS (CI/CD, API, MONITORING)
+Date du rapport: 21 May 2026
+Repository: hugging-face-classifier
+Branche validee: hala-mlops
+Commit Jenkins valide: 0b48055a24f6cfd24718f0dd1ef4c027d143a1ce
+
+====================================================================
+1) OBJECTIF DU TRAVAIL
+====================================================================
+Ce travail avait 4 objectifs principaux:
+1. Corriger les problemes d acces API locale (curl / predict).
+2. Ajouter un monitoring de drift de donnees texte en production.
+3. Ajouter des tests Python adaptes a la CI Jenkins.
+4. Verifier la chaine CI Jenkins de bout en bout avec preuve de succes.
+
+====================================================================
+2) CONTEXTE INITIAL ET PROBLEME DE DEPART
+====================================================================
+Probleme utilisateur initial:
+- "curl http://localhost:8001/" ne fonctionnait pas.
+
+Diagnostic effectue:
+1. Aucun processus n ecoutait sur le port 8001.
+2. Le projet est principalement configure sur le port 8000 (serveur FastAPI).
+3. Le conteneur API redemarrait en boucle.
+4. Cause root: RUN_ID invalide/non present dans MLflow.
+   Erreur observee:
+   mlflow.exceptions.MlflowException: Run '...' not found
+
+Correction appliquee:
+1. Utilisation du port 8000 pour l API.
+2. Identification de run_id valides dans le volume MLflow Docker.
+3. Redeploiement du service avec un RUN_ID valide.
+
+Resultat:
+- curl http://localhost:8000/ -> HTTP 200 OK.
+- curl http://localhost:8001/ -> echec normal (port non mappe).
+
+====================================================================
+3) EVOLUTION FONCTIONNELLE REALISEE
+====================================================================
+A. Monitoring Drift ajoute dans le code applicatif
+--------------------------------------------------
+Fichier ajoute:
+- madewithml/drift_monitor.py
+
+Fonctions et logique ajoutees:
+1. Calcul PSI (Population Stability Index)
+   - PSI longueur texte en caracteres.
+   - PSI longueur texte en tokens.
+2. Calcul KL divergence
+   - KL distribution langues.
+   - KL distribution vocabulaire top-k.
+3. OOV rate (Out-Of-Vocabulary rate)
+   - Proportion de tokens hors vocabulaire baseline.
+4. Fenetre glissante online
+   - Suivi des N dernieres predictions (window_size configurable).
+5. Publication Prometheus (Gauge)
+   - Exposition automatique des metriques pour /metrics.
+
+Metriques exposees:
+- madewithml_drift_window_samples
+- madewithml_drift_text_length_chars_psi
+- madewithml_drift_text_length_tokens_psi
+- madewithml_drift_language_kl
+- madewithml_drift_vocab_kl
+- madewithml_drift_oov_rate
+
+B. Integration dans l API FastAPI
+---------------------------------
+Fichier modifie:
+- madewithml/serve.py
+
+Ajouts principaux:
+1. Initialisation conditionnelle du DriftMonitor au demarrage app.
+2. Mise a jour des metriques drift a chaque appel POST /predict/.
+3. Variables d environnement supportees:
+   - DRIFT_MONITOR_ENABLED (default true)
+   - DRIFT_BASELINE_DATASET (default datasets/dataset.csv)
+   - DRIFT_WINDOW_SIZE (default 500)
+   - DRIFT_VOCAB_TOP_K (default 200)
+4. Validation robuste des env vars entieres (fallback si valeur invalide).
+
+C. Correction robustesse JSON de /predict
+-----------------------------------------
+Probleme:
+- JSON invalide envoyait HTTP 500 (erreur interne).
+
+Correction:
+- Catch JSONDecodeError + retour HTTP 400 explicite.
+
+Resultat:
+- Cas JSON invalide -> HTTP 400 + message clair.
+- Pas de crash serveur sur payload mal forme.
+
+====================================================================
+4) DASHBOARD GRAFANA MIS A JOUR
+====================================================================
+Fichier modifie:
+- monitoring/grafana/dashboards/fastapi-overview.json
+
+Nouveaux panels ajoutes:
+1. Drift Window Samples (stat)
+2. OOV Rate (stat)
+3. Language KL (stat)
+4. Text Length Chars PSI (timeseries)
+5. Text Length Tokens PSI (timeseries)
+6. Vocab KL (timeseries)
+
+Dashboard cible:
+- UID: fastapi-monitoring
+- URL: http://localhost:3001/d/fastapi-monitoring/fastapi-monitoring?orgId=1&refresh=10s
+
+====================================================================
+5) TESTS AUTOMATISES AJOUTES
+====================================================================
+A. Tests drift
+--------------
+Fichier ajoute:
+- tests/test_drift_monitor.py
+
+Ce qui est teste:
+1. KL = 0 sur distributions identiques.
+2. PSI detecte un shift.
+3. Detection langue basique (en/fr/ar).
+4. Snapshot drift retourne bien toutes les metriques attendues.
+
+B. Tests API CI (Python)
+------------------------
+Fichier ajoute:
+- tests/test_api_ci.py
+
+Nature du test:
+- Test unitaire/service-level de l API (pas integration complete).
+- Utilise TestClient FastAPI + mocks pour eviter dependance MLflow modele reel.
+
+Ce qui est teste:
+1. GET / retourne 200.
+2. POST /predict accepte JSON valide.
+3. Fallback threshold vers class "other" fonctionne.
+4. JSON invalide retourne 400.
+
+Dependance ajoutee:
+- httpx==0.24.1
+  - requirements-ci.txt
+  - requirements.txt
+
+====================================================================
+6) VALIDATION LOCALE DES TESTS
+====================================================================
+Commande executee:
+- python -m pytest -q
+
+Resultat final local:
+- 11 passed, 2 warnings
+
+Warnings observes:
+- DeprecationWarning distutils (torch/tensorboard)
+- Non bloquant
+
+====================================================================
+7) EXECUTION JENKINS - PREUVE CI
+====================================================================
+A. Build precedent (avant ajout complet)
+----------------------------------------
+Commit vu:
+- 7bc28befb8b4b4721afb9c6221eef2aa9a5e95b9
+
+Resultat:
+- tests/test_smoke.py seulement
+- 3 passed
+
+B. Build valide apres modifications
+-----------------------------------
+Commit vu:
+- 0b48055a24f6cfd24718f0dd1ef4c027d143a1ce
+Message:
+- "Add CI API tests and drift monitoring"
+
+Preuve tests Jenkins:
+- collected 11 items
+- tests/test_api_ci.py .... [ 36%]
+- tests/test_drift_monitor.py .... [ 72%]
+- tests/test_smoke.py ... [100%]
+- 11 passed
+
+Statut final build:
+- Finished: SUCCESS
+
+====================================================================
+8) PARAMETRES JENKINS UTILISES POUR LE TEST RAPIDE
+====================================================================
+Preset CI rapide recommande:
+- RUN_TRAIN=false
+- RUN_EVALUATE=false
+- BUILD_DOCKER=true (ou false pour run encore plus rapide)
+- PUSH_DOCKER=false
+- DEPLOY_LOCAL=false
+- DEPLOY_COMPOSE=false
+
+Observation temps:
+- Build long principalement a cause de l installation dependances lourdes
+  (ex: torch CPU) et du build Docker.
+
+====================================================================
+9) LIMITES ET OBSERVATIONS
+====================================================================
+1. Les tests API CI sont unitaires/service-level (mocks), pas des tests
+   d integration full stack avec modele reel.
+2. Warnings pip "dependency resolver" observes sur packaging/wheel:
+   - non bloquant dans ce pipeline.
+3. Message shell "OSTYPE: parameter not set" lors activate:
+   - observe mais non bloquant.
+4. Si RUN_ID absent en deploiement, service peut rester unhealthy
+   (erreur MLflow run not found).
+
+====================================================================
+10) RECOMMANDATIONS TECHNIQUES
+====================================================================
+1. Ajouter un job Jenkins "fast-ci" sans Docker pour feedback rapide.
+2. Garder un job "full-ci" avec Docker/deploy pour validation finale.
+3. Ajouter alertes Prometheus/Grafana sur:
+   - PSI > 0.1 (warning)
+   - PSI > 0.25 (critical)
+   - OOV rate anormalement eleve.
+4. Optimiser duree CI:
+   - cache dependances
+   - BuildKit
+   - eviter reinstall complet quand possible.
+
+====================================================================
+11) RESUME FINAL POUR LE PROF
+====================================================================
+Le projet a ete ameliore sur 3 axes:
+1. Fiabilite API:
+   - correction erreurs JSON -> 400 propre
+   - verification endpoint predict/health.
+2. Observabilite MLOps:
+   - ajout monitoring drift (PSI/KL/OOV/window)
+   - integration Prometheus + dashboard Grafana etendu.
+3. Qualite CI:
+   - ajout tests Python CI adaptes
+   - pipeline Jenkins valide avec 11 tests passes
+   - statut final: SUCCESS.
+
+Ce livrable demontre un workflow CI/CD fonctionnel, mesurable et
+defensif pour une application MLOps de prediction texte.
+
+====================================================================
+FIN DU RAPPORT
+====================================================================
